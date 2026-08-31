@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+import { delimiter, dirname, join } from "node:path";
 import { loadManifest, ManifestError } from "./manifest.ts";
 import { resolveManifest, ResolveError, type Resolution } from "./resolve.ts";
 import { gcpFetcher, SecretAccessError } from "./gcp.ts";
@@ -76,7 +77,11 @@ async function run(argv: string[]): Promise<number> {
 
   const child = spawn(command, args, {
     stdio: "inherit",
-    env: { ...process.env, ...Object.fromEntries(resolution.values) },
+    env: {
+      ...process.env,
+      ...binPath(manifest.path),
+      ...Object.fromEntries(resolution.values),
+    },
   });
 
   for (const signal of ["SIGINT", "SIGTERM"] as const) {
@@ -84,10 +89,29 @@ async function run(argv: string[]): Promise<number> {
   }
 
   return await new Promise<number>((done, fail) => {
-    child.on("error", fail);
+    child.on("error", (err: NodeJS.ErrnoException) => {
+      if (err.code === "ENOENT") {
+        console.error(`envless: command not found: ${command}`);
+        done(127);
+        return;
+      }
+      fail(err);
+    });
     // A child killed by a signal has no exit code; report it as a failure.
     child.on("exit", (code, signal) => done(signal ? 1 : (code ?? 0)));
   });
+}
+
+/**
+ * Put the project's `node_modules/.bin` on PATH so `envless run next dev` works
+ * the way it does inside an npm script, without an `npm run` in between.
+ */
+function binPath(manifestPath: string): { PATH?: string } {
+  const bin = join(dirname(manifestPath), "node_modules", ".bin");
+  if (!existsSync(bin)) return {};
+  const current = process.env.PATH ?? "";
+  if (current.split(delimiter).includes(bin)) return {};
+  return { PATH: current ? `${bin}${delimiter}${current}` : bin };
 }
 
 async function main(): Promise<number> {

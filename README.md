@@ -66,6 +66,8 @@ subdirectory and in any linked worktree.
   message instead of an app that boots with `gpc://…` as its password.
 - **Secrets are fetched lazily.** A manifest with no `gcp://` references never loads the
   Secret Manager SDK and never needs credentials.
+- **Local binaries just work.** The project's `node_modules/.bin` is put on the child's
+  PATH, so `envless run next dev` works without an `npm run` in between.
 
 ## Not yet
 
