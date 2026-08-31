@@ -1,0 +1,34 @@
+{
+  "name": "envless",
+  "version": "0.1.0",
+  "description": "Resolve environment variables from a committed manifest and inject them into the child process. No .env files.",
+  "type": "module",
+  "bin": {
+    "envless": "src/cli.ts"
+  },
+  "files": [
+    "src"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "env",
+    "dotenv",
+    "secret-manager",
+    "worktree",
+    "agent"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@google-cloud/secret-manager": "^6.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.0"
+  }
+}
