@@ -2,6 +2,10 @@
   "name": "envless",
   "version": "0.1.0",
   "description": "Resolve environment variables from a committed manifest and inject them into the child process. No .env files.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bam6o0/envless.git"
+  },
   "type": "module",
   "bin": {
     "envless": "src/cli.ts"
