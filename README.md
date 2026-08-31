@@ -3,6 +3,7 @@
 **Declare where your environment variables come from, not what they are.** envless resolves
 them at launch and injects them into the child process — no `.env` files, no secrets on disk.
 
+[![CI](https://github.com/bam6o0/envless/actions/workflows/ci.yml/badge.svg)](https://github.com/bam6o0/envless/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 ![node](https://img.shields.io/badge/node-%3E%3D24-brightgreen.svg)
 ![status](https://img.shields.io/badge/status-early-orange.svg)
