@@ -33,6 +33,7 @@ Declare the environment in `envless.json` at the project root and commit it:
 | Value | Meaning |
 |---|---|
 | `"..."` | literal |
+| `"{{ portless.url }}"` | the app's URL from [portless](https://portless.sh); `{{ portless.host }}` for the host. Usable inside a larger string |
 | `"gcp://<project>/<secret>"` | Google Secret Manager, `latest` version (`#<version>` to pin) |
 | `null` | required: must already be in the environment, otherwise envless refuses to start |
 
@@ -40,7 +41,6 @@ Then run anything through it:
 
 ```bash
 envless run npm run dev
-envless run portless run next dev     # both, so ports and env are handled
 ```
 
 ```
@@ -52,6 +52,37 @@ envless: /path/to/envless.json
 
 The manifest is found by walking up from the working directory, so it works from any
 subdirectory and in any linked worktree.
+
+## With portless
+
+`{{ portless.url }}` fills in the per-worktree URL that [portless](https://portless.sh)
+assigns, so a variable like a public base URL or an OAuth callback needs no per-worktree
+value anywhere:
+
+```json
+{
+  "env": {
+    "PUBLIC_URL": "{{ portless.url }}",
+    "CALLBACK_URL": "{{ portless.url }}/api/auth/callback"
+  }
+}
+```
+
+**portless has to be the outer command:**
+
+```bash
+portless run envless run next dev     # correct
+envless run portless run next dev     # {{ portless.url }} cannot resolve
+```
+
+portless assigns the port and URL when it starts the process it wraps, so it has to run
+first: envless reads the `PORTLESS_URL` that portless put in its environment. In the other
+order envless would have to guess a URL that does not exist yet, and it refuses instead —
+the error tells you to swap the order.
+
+Everything else keeps working in the wrong order, and a variable already in the
+environment still wins, so `PUBLIC_URL=http://localhost:3000 envless run next dev` needs no
+portless at all.
 
 ## Design
 
@@ -71,8 +102,8 @@ subdirectory and in any linked worktree.
 
 ## Not yet
 
-- `{{ portless.url }}` / `{{ branch }}` templates so per-worktree values come from
-  portless instead of being hand-set
+- `{{ branch }}` / `{{ worktree }}` templates for per-worktree database names, bucket
+  prefixes and the like
 - Backends beyond GCP (1Password, AWS, Vault)
 - Per-user overrides in a state dir outside the repo (`~/.envless/<project>/<worktree>`)
 - Optional short-lived caching for offline starts

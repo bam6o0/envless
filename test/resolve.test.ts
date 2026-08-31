@@ -72,3 +72,56 @@ test("a failing secret fetch propagates", async () => {
     /boom/
   );
 });
+
+test("expands portless placeholders", async () => {
+  const { values, report } = await resolveManifest(
+    manifest({
+      URL: "{{ portless.url }}",
+      CALLBACK: "{{ portless.url }}/api/auth/callback",
+      HOST: "{{ portless.host }}",
+    }),
+    {},
+    fetcher([]),
+    { portlessUrl: "https://feature-x.myapp.localhost" }
+  );
+
+  assert.deepEqual(
+    [...values],
+    [
+      ["URL", "https://feature-x.myapp.localhost"],
+      ["CALLBACK", "https://feature-x.myapp.localhost/api/auth/callback"],
+      ["HOST", "feature-x.myapp.localhost"],
+    ]
+  );
+  assert.deepEqual(report.map((r) => r.origin), ["template", "template", "template"]);
+});
+
+test("portless.host keeps a non-default port", async () => {
+  const { values } = await resolveManifest(
+    manifest({ HOST: "{{ portless.host }}" }),
+    {},
+    fetcher([]),
+    { portlessUrl: "http://myapp.localhost:8080" }
+  );
+  assert.equal(values.get("HOST"), "myapp.localhost:8080");
+});
+
+test("a template without PORTLESS_URL explains the required order", async () => {
+  await assert.rejects(
+    () => resolveManifest(manifest({ URL: "{{ portless.url }}" }), {}, fetcher([])),
+    (err: unknown) =>
+      err instanceof ResolveError &&
+      /PORTLESS_URL is not set/.test(String(err)) &&
+      /portless run envless run/.test(String(err))
+  );
+});
+
+test("an environment value wins over a template, so no portless is needed", async () => {
+  const { values, report } = await resolveManifest(
+    manifest({ URL: "{{ portless.url }}" }),
+    { URL: "http://localhost:3000" },
+    fetcher([])
+  );
+  assert.deepEqual([...values], []);
+  assert.deepEqual(report, [{ key: "URL", origin: "environment" }]);
+});

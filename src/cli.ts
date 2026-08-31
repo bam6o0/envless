@@ -25,8 +25,13 @@ Manifest (envless.json, found by walking up from the working directory):
   }
 
   string       literal value
+  {{ ... }}    template: {{ portless.url }} / {{ portless.host }} from portless
   gcp://...    Google Secret Manager: gcp://<project>/<secret>[#<version>] (default: latest)
   null         required: must already be present in the environment
+
+Templates read portless's PORTLESS_URL, so portless has to be the outer command:
+
+  portless run envless run next dev
 
 Values are passed to the child process only. envless never writes them to disk
 and has no command that prints them, so a .env file is not needed per worktree.
@@ -47,12 +52,7 @@ function logResolution(resolution: Resolution, manifestPath: string): void {
   // stderr so the child's stdout stays clean for pipes.
   console.error(`envless: ${manifestPath}`);
   for (const { key, origin } of resolution.report) {
-    const note =
-      origin === "environment"
-        ? "from environment"
-        : origin === "literal"
-          ? "literal"
-          : "secret";
+    const note = origin === "environment" ? "from environment" : origin;
     console.error(`  ${key} (${note})`);
   }
 }
@@ -69,7 +69,9 @@ async function run(argv: string[]): Promise<number> {
   const gcp = gcpFetcher();
   let resolution: Resolution;
   try {
-    resolution = await resolveManifest(manifest, process.env, gcp.fetch);
+    resolution = await resolveManifest(manifest, process.env, gcp.fetch, {
+      portlessUrl: process.env.PORTLESS_URL,
+    });
   } finally {
     await gcp.close();
   }

@@ -75,3 +75,31 @@ test("findManifest: undefined when there is none", () => {
   // lookup behaviour under test; tmpdir has none in practice.
   assert.equal(findManifest(root), undefined);
 });
+
+test("parseSource: templates", () => {
+  assert.deepEqual(parseSource("A", "{{ portless.url }}"), {
+    kind: "template",
+    template: "{{ portless.url }}",
+    placeholders: ["portless.url"],
+  });
+  // embedded in a larger string, and whitespace-tolerant
+  assert.deepEqual(parseSource("A", "https://{{portless.host}}/callback"), {
+    kind: "template",
+    template: "https://{{portless.host}}/callback",
+    placeholders: ["portless.host"],
+  });
+  // repeated placeholders are deduped
+  assert.deepEqual(
+    parseSource("A", "{{ portless.url }} {{ portless.url }}"),
+    {
+      kind: "template",
+      template: "{{ portless.url }} {{ portless.url }}",
+      placeholders: ["portless.url"],
+    }
+  );
+});
+
+test("parseSource: unknown placeholder is an error", () => {
+  assert.throws(() => parseSource("A", "{{ portless.uri }}"), ManifestError);
+  assert.throws(() => parseSource("A", "{{ branch }}"), ManifestError);
+});

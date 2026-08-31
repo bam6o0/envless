@@ -1,4 +1,4 @@
-import type { Manifest, Source } from "./manifest.ts";
+import { PLACEHOLDER_REF, type Manifest, type Placeholder, type Source } from "./manifest.ts";
 
 /** Fetches one secret value. Injected so resolution is testable without network. */
 export type SecretFetcher = (source: Extract<Source, { kind: "gcp" }>) => Promise<string>;
@@ -7,8 +7,50 @@ export type Resolution = {
   /** Values to add to the child environment. Never includes keys already set. */
   values: Map<string, string>;
   /** What happened per variable, in manifest order. For logging. */
-  report: { key: string; origin: "environment" | "literal" | "secret" }[];
+  report: { key: string; origin: "environment" | "literal" | "secret" | "template" }[];
 };
+
+/**
+ * Values available to `{{ ... }}` placeholders.
+ *
+ * `portlessUrl` is portless's own `PORTLESS_URL`, which exists only when envless
+ * runs *inside* portless (`portless run envless run <cmd>`). The other order
+ * cannot work: portless picks the port after envless has already spawned it.
+ */
+export type TemplateContext = { portlessUrl?: string | undefined };
+
+function placeholderValue(
+  name: Placeholder,
+  context: TemplateContext
+): string | undefined {
+  if (!context.portlessUrl) return undefined;
+  switch (name) {
+    case "portless.url":
+      return context.portlessUrl;
+    case "portless.host":
+      return new URL(context.portlessUrl).host;
+  }
+}
+
+function expand(
+  key: string,
+  template: string,
+  placeholders: Placeholder[],
+  manifestPath: string,
+  context: TemplateContext
+): string {
+  for (const name of placeholders) {
+    if (placeholderValue(name, context) === undefined) {
+      throw new ResolveError(
+        `${key} in ${manifestPath} uses {{ ${name} }} but PORTLESS_URL is not set\n` +
+          "  run envless inside portless: portless run envless run <command>"
+      );
+    }
+  }
+  return template.replace(PLACEHOLDER_REF, (_match, name: string) =>
+    placeholderValue(name as Placeholder, context)!
+  );
+}
 
 export class ResolveError extends Error {}
 
@@ -21,7 +63,8 @@ export class ResolveError extends Error {}
 export async function resolveManifest(
   manifest: Manifest,
   env: Record<string, string | undefined>,
-  fetchSecret: SecretFetcher
+  fetchSecret: SecretFetcher,
+  context: TemplateContext = {}
 ): Promise<Resolution> {
   const values = new Map<string, string>();
   const report: Resolution["report"] = [];
@@ -37,6 +80,13 @@ export async function resolveManifest(
       case "literal":
         values.set(key, source.value);
         report.push({ key, origin: "literal" });
+        break;
+      case "template":
+        values.set(
+          key,
+          expand(key, source.template, source.placeholders, manifest.path, context)
+        );
+        report.push({ key, origin: "template" });
         break;
       case "gcp":
         pending.push({ key, source });

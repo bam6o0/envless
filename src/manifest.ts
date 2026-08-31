@@ -6,6 +6,8 @@ export const MANIFEST_NAME = "envless.json";
 /** How a variable's value is obtained. */
 export type Source =
   | { kind: "literal"; value: string }
+  /** A literal with `{{ ... }}` placeholders, expanded at resolve time. */
+  | { kind: "template"; template: string; placeholders: Placeholder[] }
   | { kind: "gcp"; project: string; secret: string; version: string }
   /** Declared but not sourced: must already be present in the environment. */
   | { kind: "required" };
@@ -16,8 +18,15 @@ export type Manifest = {
   vars: Map<string, Source>;
 };
 
+/** Placeholders usable inside a value, as `{{ <name> }}`. */
+export const PLACEHOLDERS = ["portless.url", "portless.host"] as const;
+export type Placeholder = (typeof PLACEHOLDERS)[number];
+
 // `gcp://<project>/<secret>` or `gcp://<project>/<secret>#<version>`
 const GCP_REF = /^gcp:\/\/([\w-]+)\/([\w-]+)(?:#([\w-]+))?$/;
+
+// `{{ name }}`, tolerant of surrounding whitespace.
+export const PLACEHOLDER_REF = /\{\{\s*([\w.]+)\s*\}\}/g;
 
 class ManifestError extends Error {}
 
@@ -40,6 +49,24 @@ export function parseSource(key: string, raw: unknown): Source {
       `${key}: expected a string or null, got ${raw === undefined ? "undefined" : typeof raw}`
     );
   }
+  const placeholders = [...raw.matchAll(PLACEHOLDER_REF)];
+  if (placeholders.length > 0) {
+    const names = placeholders.map((m) => m[1]!);
+    const unknown = names.find(
+      (name) => !(PLACEHOLDERS as readonly string[]).includes(name)
+    );
+    if (unknown) {
+      throw new ManifestError(
+        `${key}: unknown placeholder {{ ${unknown} }} (supported: ${PLACEHOLDERS.map((p) => `{{ ${p} }}`).join(", ")})`
+      );
+    }
+    return {
+      kind: "template",
+      template: raw,
+      placeholders: [...new Set(names)] as Placeholder[],
+    };
+  }
+
   const gcp = raw.match(GCP_REF);
   if (gcp) {
     return {
