@@ -54,6 +54,22 @@ envless: /path/to/envless.json
 The manifest is found by walking up from the working directory, so it works from any
 subdirectory and in any linked worktree.
 
+`envless run` replaces itself with the command you gave it as far as the terminal is
+concerned: stdio is inherited, Ctrl-C is forwarded, and the child's exit code becomes
+envless's own.
+
+### Google Secret Manager
+
+`gcp://` references authenticate with Application Default Credentials, so log in once:
+
+```bash
+gcloud auth application-default login
+```
+
+The identity needs `roles/secretmanager.secretAccessor` on each referenced secret. If it
+does not, or ADC is missing, envless says so and refuses to start the command — it never
+starts your app with a half-resolved environment.
+
 ## With portless
 
 `{{ portless.url }}` fills in the per-worktree URL that [portless](https://portless.sh)
@@ -112,7 +128,12 @@ portless at all.
 ## Development
 
 ```bash
-npm install
-npm test        # node:test, no network
+npm install       # also builds dist/ through the prepare script
+npm test          # node:test, no network
 npm run typecheck
+npm run build     # src/*.ts -> dist/*.js
 ```
+
+The sources are TypeScript and the tests run them directly (Node 24 strips types), but the
+published `bin` points at `dist/`: Node refuses to strip types for files under
+`node_modules`, so an installed copy has to be plain JavaScript.
