@@ -11,10 +11,11 @@ worktree, and no `.env.local` to keep in sync across the ten worktrees an agent 
 ## Install
 
 ```bash
-npm install -g envless   # not published yet; use `npm link` from a clone for now
+npm install -g github:bam6o0/envless
 ```
 
-Requires Node.js 24+ (the CLI runs TypeScript directly, so there is no build step).
+Requires Node.js 24+. Not on npm: the `envless` name is taken by an unrelated,
+long-abandoned package, so install from the repository.
 
 ## Use
 
