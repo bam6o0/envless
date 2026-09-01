@@ -67,8 +67,11 @@ Each value under `env` declares a source:
 | `"{{ portless.url }}"` | the app's URL from [portless](https://portless.sh); `{{ portless.host }}` for host and port. Usable inside a larger string |
 | `null` | required: must already be in the environment, otherwise envless refuses to start |
 
-A value that looks like an unknown reference scheme (`gpc://…`) or an unknown placeholder
-(`{{ brunch }}`) is a typo, not a literal, and is rejected before anything starts.
+A literal can be anything, including a URL with a scheme of its own — a
+`postgresql://…` connection string is a value, not a place to fetch from. Only a scrambled
+spelling of a reference scheme (`gpc://…`) or an unknown placeholder (`{{ brunch }}`) is
+treated as a typo and rejected before anything starts, along with a `gcp://` reference that
+does not parse.
 
 ## CLI reference
 

@@ -25,6 +25,20 @@ export type Placeholder = (typeof PLACEHOLDERS)[number];
 // `gcp://<project>/<secret>` or `gcp://<project>/<secret>#<version>`
 const GCP_REF = /^gcp:\/\/([\w-]+)\/([\w-]+)(?:#([\w-]+))?$/;
 
+/** Schemes that mean "fetch this from somewhere" rather than "this is the value". */
+const REFERENCE_SCHEMES = ["gcp"] as const;
+
+const SCHEME = /^([a-z][a-z0-9+.-]*):\/\//;
+
+/** The same letters in a different order, as `gpc` is for `gcp`. */
+function isScrambled(scheme: string, reference: string): boolean {
+  return (
+    scheme !== reference &&
+    scheme.length === reference.length &&
+    [...scheme].sort().join("") === [...reference].sort().join("")
+  );
+}
+
 // `{{ name }}`, tolerant of surrounding whitespace.
 export const PLACEHOLDER_REF = /\{\{\s*([\w.]+)\s*\}\}/g;
 
@@ -67,8 +81,14 @@ export function parseSource(key: string, raw: unknown): Source {
     };
   }
 
-  const gcp = raw.match(GCP_REF);
-  if (gcp) {
+  const scheme = raw.match(SCHEME)?.[1];
+  if (scheme === "gcp") {
+    const gcp = raw.match(GCP_REF);
+    if (!gcp) {
+      throw new ManifestError(
+        `${key}: malformed gcp:// reference in ${JSON.stringify(raw)} (expected gcp://<project>/<secret>[#<version>])`
+      );
+    }
     return {
       kind: "gcp",
       project: gcp[1]!,
@@ -76,11 +96,15 @@ export function parseSource(key: string, raw: unknown): Source {
       version: gcp[3] ?? "latest",
     };
   }
-  // A value that looks like a scheme we don't know is a typo, not a literal.
-  // Catching it here beats shipping "gpc://..." to the app as a password.
-  if (/^[a-z][a-z0-9+.-]*:\/\//.test(raw) && !raw.startsWith("http")) {
+  // Any other scheme is part of the value: connection strings (`postgresql://`,
+  // `redis://`, `amqp://`) are what an app is configured with, not places to
+  // fetch from. Only a scrambled spelling of a reference scheme is a typo worth
+  // failing on — shipping "gpc://project/secret" to the app as a password is the
+  // mistake this catches.
+  const scrambled = scheme && REFERENCE_SCHEMES.find((r) => isScrambled(scheme, r));
+  if (scrambled) {
     throw new ManifestError(
-      `${key}: unknown reference scheme in ${JSON.stringify(raw)} (supported: gcp://<project>/<secret>[#<version>])`
+      `${key}: unknown reference scheme "${scheme}://" in ${JSON.stringify(raw)} — did you mean "${scrambled}://"?`
     );
   }
   return { kind: "literal", value: raw };

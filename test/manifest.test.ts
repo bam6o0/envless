@@ -37,6 +37,17 @@ test("parseSource: a mistyped scheme is an error, not a literal password", () =>
   assert.throws(() => parseSource("A", "gcp://proj"), ManifestError);
 });
 
+test("parseSource: a connection string is a literal, not a reference", () => {
+  for (const value of [
+    "postgresql://user:pw@localhost:5432/db",
+    "redis://localhost:6379",
+    "amqp://guest:guest@localhost:5672",
+    "gs://my-bucket/object",
+  ]) {
+    assert.deepEqual(parseSource("A", value), { kind: "literal", value });
+  }
+});
+
 test("parseSource: non-string is an error", () => {
   assert.throws(() => parseSource("A", 42), ManifestError);
   assert.throws(() => parseSource("A", { gcp: "x" }), ManifestError);
