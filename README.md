@@ -65,6 +65,7 @@ Each value under `env` declares a source:
 | `"..."` | literal |
 | `"gcp://<project>/<secret>"` | Google Secret Manager, `latest` version (`#<version>` to pin) |
 | `"{{ portless.url }}"` | the app's URL from [portless](https://portless.sh); `{{ portless.host }}` for host and port. Usable inside a larger string |
+| `"{{ dataless.url }}"` | this branch's database URL from [dataless](https://github.com/bam6o0/dataless) |
 | `null` | required: must already be in the environment, otherwise envless refuses to start |
 
 A literal can be anything, including a URL with a scheme of its own — a
@@ -135,6 +136,33 @@ the error tells you to swap the order.
 
 Everything else works in either order, and a variable already in the environment still
 wins, so `PUBLIC_URL=http://localhost:3000 envless run next dev` needs no portless at all.
+
+## With dataless
+
+[dataless](https://github.com/bam6o0/dataless) gives each worktree its own Postgres
+database. `{{ dataless.url }}` is that database's URL, so a per-branch connection string
+needs no per-branch value either:
+
+```json
+{
+  "env": {
+    "PUBLIC_URL": "{{ portless.url }}",
+    "DATABASE_URL": "{{ dataless.url }}"
+  }
+}
+```
+
+```bash
+portless run dataless run envless run next dev
+```
+
+The same rule applies for the same reason: dataless creates the database when it starts the
+process it wraps, so **envless has to be the innermost command**. Between portless and
+dataless the order does not matter — envless reads both from the environment, and the error
+for a missing one names the tool that supplies it.
+
+Each tool contributes one value; envless is the only place that decides which variable it
+lands in.
 
 ## Design
 

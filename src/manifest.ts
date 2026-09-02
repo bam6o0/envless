@@ -19,7 +19,11 @@ export type Manifest = {
 };
 
 /** Placeholders usable inside a value, as `{{ <name> }}`. */
-export const PLACEHOLDERS = ["portless.url", "portless.host"] as const;
+export const PLACEHOLDERS = [
+  "portless.url",
+  "portless.host",
+  "dataless.url",
+] as const;
 export type Placeholder = (typeof PLACEHOLDERS)[number];
 
 // `gcp://<project>/<secret>` or `gcp://<project>/<secret>#<version>`
