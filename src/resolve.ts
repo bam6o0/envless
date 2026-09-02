@@ -13,22 +13,34 @@ export type Resolution = {
 /**
  * Values available to `{{ ... }}` placeholders.
  *
- * `portlessUrl` is portless's own `PORTLESS_URL`, which exists only when envless
- * runs *inside* portless (`portless run envless run <cmd>`). The other order
- * cannot work: portless picks the port after envless has already spawned it.
+ * Each one comes from a tool that envless runs *inside*: `PORTLESS_URL` from
+ * portless, `DATALESS_URL` from dataless. The other order cannot work — those
+ * tools pick a port or create a database when they spawn their child, so
+ * envless has to be the innermost command.
  */
-export type TemplateContext = { portlessUrl?: string | undefined };
+export type TemplateContext = {
+  portlessUrl?: string | undefined;
+  datalessUrl?: string | undefined;
+};
+
+/** Which tool supplies a placeholder, for the error when it is missing. */
+const SUPPLIER: Record<Placeholder, { tool: string; variable: string }> = {
+  "portless.url": { tool: "portless", variable: "PORTLESS_URL" },
+  "portless.host": { tool: "portless", variable: "PORTLESS_URL" },
+  "dataless.url": { tool: "dataless", variable: "DATALESS_URL" },
+};
 
 function placeholderValue(
   name: Placeholder,
   context: TemplateContext
 ): string | undefined {
-  if (!context.portlessUrl) return undefined;
   switch (name) {
     case "portless.url":
       return context.portlessUrl;
     case "portless.host":
-      return new URL(context.portlessUrl).host;
+      return context.portlessUrl ? new URL(context.portlessUrl).host : undefined;
+    case "dataless.url":
+      return context.datalessUrl;
   }
 }
 
@@ -41,9 +53,10 @@ function expand(
 ): string {
   for (const name of placeholders) {
     if (placeholderValue(name, context) === undefined) {
+      const { tool, variable } = SUPPLIER[name];
       throw new ResolveError(
-        `${key} in ${manifestPath} uses {{ ${name} }} but PORTLESS_URL is not set\n` +
-          "  run envless inside portless: portless run envless run <command>"
+        `${key} in ${manifestPath} uses {{ ${name} }} but ${variable} is not set\n` +
+          `  run envless inside ${tool}: ${tool} run envless run <command>`
       );
     }
   }

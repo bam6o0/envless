@@ -25,13 +25,15 @@ Manifest (envless.json, found by walking up from the working directory):
   }
 
   string       literal value
-  {{ ... }}    template: {{ portless.url }} / {{ portless.host }} from portless
+  {{ ... }}    template: {{ portless.url }} / {{ portless.host }} from portless,
+               {{ dataless.url }} from dataless
   gcp://...    Google Secret Manager: gcp://<project>/<secret>[#<version>] (default: latest)
   null         required: must already be present in the environment
 
-Templates read portless's PORTLESS_URL, so portless has to be the outer command:
+Templates read what those tools put in the environment (PORTLESS_URL,
+DATALESS_URL), so envless has to be the innermost command:
 
-  portless run envless run next dev
+  portless run dataless run envless run next dev
 
 Values are passed to the child process only. envless never writes them to disk
 and has no command that prints them, so a .env file is not needed per worktree.
@@ -71,6 +73,7 @@ async function run(argv: string[]): Promise<number> {
   try {
     resolution = await resolveManifest(manifest, process.env, gcp.fetch, {
       portlessUrl: process.env.PORTLESS_URL,
+      datalessUrl: process.env.DATALESS_URL,
     });
   } finally {
     await gcp.close();

@@ -116,6 +116,44 @@ test("a template without PORTLESS_URL explains the required order", async () => 
   );
 });
 
+test("expands the dataless placeholder", async () => {
+  const { values, report } = await resolveManifest(
+    manifest({ DATABASE_URL: "{{ dataless.url }}" }),
+    {},
+    fetcher([]),
+    { datalessUrl: "postgresql://postgres@localhost:5432/myapp_feature_x" }
+  );
+  assert.equal(
+    values.get("DATABASE_URL"),
+    "postgresql://postgres@localhost:5432/myapp_feature_x"
+  );
+  assert.deepEqual(report.map((r) => r.origin), ["template"]);
+});
+
+test("each placeholder names the tool that supplies it", async () => {
+  await assert.rejects(
+    () => resolveManifest(manifest({ DATABASE_URL: "{{ dataless.url }}" }), {}, fetcher([])),
+    (err: unknown) =>
+      err instanceof ResolveError &&
+      /DATALESS_URL is not set/.test(String(err)) &&
+      /dataless run envless run/.test(String(err))
+  );
+});
+
+test("placeholders from different tools resolve independently", async () => {
+  const { values } = await resolveManifest(
+    manifest({ URL: "{{ portless.url }}", DATABASE_URL: "{{ dataless.url }}" }),
+    {},
+    fetcher([]),
+    {
+      portlessUrl: "https://feature-x.myapp.localhost",
+      datalessUrl: "postgresql://postgres@localhost:5432/myapp_feature_x",
+    }
+  );
+  assert.equal(values.get("URL"), "https://feature-x.myapp.localhost");
+  assert.equal(values.get("DATABASE_URL"), "postgresql://postgres@localhost:5432/myapp_feature_x");
+});
+
 test("an environment value wins over a template, so no portless is needed", async () => {
   const { values, report } = await resolveManifest(
     manifest({ URL: "{{ portless.url }}" }),
